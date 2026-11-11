@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Share Signals – free watchlist & signal app</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12303a">
+<style>
+:root{--bg:#f3f5f7;--card:#fff;--ink:#12303a;--mute:#5d7280;--line:#d9e1e6;--buy:#0c8a5b;--sell:#c23b3b;--hold:#8a6a0c;--warn:#fff4d6;--warnt:#5c4400;--accent:#12303a}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1a20;--card:#14262e;--ink:#e6eef2;--mute:#8fa5b1;--line:#27404b;--buy:#45d19a;--sell:#ff7b7b;--hold:#e6c35c;--warn:#3a3010;--warnt:#f2deaa;--accent:#45d19a}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:700;margin:0}
+.wrap{max-width:960px;margin:0 auto;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+h1{font-size:26px}
+.pill{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--mute)}
+.pill.on{color:var(--buy);border-color:var(--buy)}.pill.off{color:var(--sell);border-color:var(--sell)}
+.warn{background:var(--warn);color:var(--warnt);padding:10px 12px;border-radius:8px;margin:12px 0;font-size:13px}
+nav{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:10px 0 14px}
+nav button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font:inherit;color:var(--mute);cursor:pointer}
+nav button[aria-selected=true]{color:var(--ink);border-color:var(--accent);font-weight:600}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);min-width:0}
+.btn{font:inherit;padding:8px 14px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--bg);cursor:pointer}
+.btn.ghost{background:none;color:var(--ink);border-color:var(--line)}
+.item{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:4px 12px}
+.sym{font-weight:700;font-size:17px}.mut{color:var(--mute);font-size:13px}
+.sig{font-weight:700;font-size:15px;text-align:right}
+.BUY{color:var(--buy)}.SELL{color:var(--sell)}.HOLD{color:var(--hold)}
+.why{grid-column:1/-1;font-size:13px;color:var(--mute)}
+svg.sp{width:110px;height:32px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:right;padding:8px 6px;border-bottom:1px solid var(--line)}th:first-child,td:first-child{text-align:left}
+.scroll{overflow-x:auto}
+footer{margin-top:28px;border-top:1px solid var(--line);padding-top:16px;font-size:13px;color:var(--mute)}
+footer a{color:var(--ink)}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><h1>Share Signals</h1><div><span class="pill" id="net"></span> <span class="pill" id="src"></span></div></header>
+<div class="warn" role="alert"><strong>Warning – use at your own risk.</strong> Signals come from simple algorithms (moving averages, RSI, momentum) on past prices. They are not financial advice and are not guaranteed to be right. Markets can fall and you can lose money. The author and this app accept no responsibility for any gain or loss. Do your own research or ask a licensed adviser.</div>
+<div id="alerts"></div><nav role="tablist"><button role="tab" data-t="today" aria-selected="true">Today</button><button role="tab" data-t="watch" aria-selected="false">Watchlist</button><button role="tab" data-t="port" aria-selected="false">My portfolio</button><button role="tab" data-t="set" aria-selected="false">Settings</button></nav>
+
+<section id="today"><div id="tbox"></div></section>
+<section id="watch" class="hide">
+<div class="row"><select id="ex" aria-label="Exchange"></select>
+<input id="add" placeholder="Add symbol e.g. TCS" size="14"><button class="btn" id="addb">Add</button><button class="btn ghost" id="refresh">Refresh</button></div>
+<div id="alist" class="row"></div><div id="wl"></div>
+</section>
+
+<section id="port" class="hide">
+<div class="row"><input id="ps" placeholder="Symbol" size="9"><select id="pe"></select><input id="pq" type="number" min="0" step="any" placeholder="Qty" style="width:80px"><input id="pp" type="number" min="0" step="any" placeholder="Buy price" style="width:100px"><button class="btn" id="padd">Add holding</button><button class="btn ghost" id="sync">Sync from broker</button></div>
+<div class="scroll"><table><thead><tr><th>Share</th><th>Qty</th><th>Buy</th><th>Now</th><th>P/L</th><th>Signal</th><th></th></tr></thead><tbody id="pb"></tbody></table></div>
+<p class="mut" id="ptot"></p>
+<div class="row"><button class="btn ghost" id="exp">Export backup</button><label class="btn ghost">Import backup<input type="file" id="imp" accept=".json,.csv" class="hide"></label></div>
+<p class="mut">To pull holdings straight from your broker, set up the small free proxy in the broker-proxy.js file (see README) and paste its address in Settings. Otherwise enter holdings here or import a CSV (symbol,exchange,qty,price). Everything stays on your device.</p>
+</section>
+
+<section id="set" class="hide">
+<h2>Live prices</h2>
+<p class="mut">The app works offline with sample (demo) prices. For real prices, paste a free API key from <a href="https://twelvedata.com" target="_blank" rel="noopener">twelvedata.com</a> (covers NSE, BSE, NASDAQ, NYSE, LSE and more; the free plan has daily limits). The key is stored only in this browser.</p>
+<div class="row"><input id="key" type="password" placeholder="Twelve Data API key" size="30"><button class="btn" id="savek">Save key</button><button class="btn ghost" id="clr">Erase all my data</button></div>
+<h2 style="margin-top:20px">Broker and alerts</h2><div class="row"><input id="proxy" placeholder="Your broker proxy URL (optional)" size="34"><button class="btn" id="savep">Save</button><button class="btn ghost" id="notif">Allow alert notifications</button></div><p class="mut">Alerts are checked whenever the app is open. Your broker password and keys never go in this app.</p><h2 style="margin-top:20px">How signals are made</h2>
+<p class="mut">Each share is scored from −7 to +7 using: price vs 50-day average, 20/50-day trend, RSI, 20-day momentum, MACD and Bollinger bands. Score 3 or more = BUY (with a suggested stop-loss and target from recent volatility), −3 or less = SELL, otherwise HOLD. This is rule-based maths on price history only; it does not read news, results or company fundamentals.</p>
+</section>
+
+<footer>
+<strong>About the builder</strong><br>
+VB — Venkateswararao Banday: multi-sector programme and operations leader with the right to work in the UK and India, looking for roles in London.<br>
+I build apps with AI and share them free to spread knowledge and useful information. If this helped you, and you know of any opportunity or can refer me, I would be very grateful.<br>
+<a href="https://wa.me/919962507575" target="_blank" rel="noopener">WhatsApp +91 9962507575</a> · <a href="https://wa.me/447391522993" target="_blank" rel="noopener">WhatsApp +44 7391 522993</a> · <a href="https://www.linkedin.com/in/venkateswararao-banday" target="_blank" rel="noopener">LinkedIn</a><br>
+Prefer not to click links? Contact details in plain text: WhatsApp +91 9962507575 · WhatsApp +44 7391 522993 · LinkedIn: linkedin.com/in/venkateswararao-banday<br>
+Free to share. No sign-up, no ads, no data collected.<br><br>
+Disclaimer: algorithm output only, no guarantee. Not financial advice. Use at your own risk; the author and app are not responsible for any loss.
+</footer>
+</div>
+<script>
+const EX={NSE:['RELIANCE','TCS','INFY','HDFCBANK','ITC'],BSE:['RELIANCE','TCS','SBIN','TATAMOTORS'],NASDAQ:['AAPL','MSFT','NVDA','GOOGL','AMZN'],NYSE:['JPM','KO','DIS','WMT'],LSE:['HSBA','BP','VOD','SHEL'],TSX:['RY','SHOP'],ASX:['BHP','CBA'],SGX:['D05','Z74'],HKEX:['700','5','9988'],XETR:['SAP','SIE'],Euronext:['MC','AIR']};
+const $=s=>document.querySelector(s);
+const S=(()=>{try{return JSON.parse(localStorage.getItem('ss')||'{}')}catch(e){return{}}})();
+S.ex=S.ex||'NSE';S.watch=S.watch||JSON.parse(JSON.stringify(EX));S.hold=S.hold||[];S.key=S.key||'';S.cache=S.cache||{};S.alerts=S.alerts||[];S.proxy=S.proxy||'';
+const save=()=>{try{localStorage.setItem('ss',JSON.stringify(S))}catch(e){}};
+const opts=Object.keys(EX).map(e=>`<option>${e}</option>`).join('');
+$('#ex').innerHTML=opts;$('#pe').innerHTML=opts;$('#ex').value=S.ex;
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function net(){const o=navigator.onLine;$('#net').textContent=o?'Online':'Offline';$('#net').className='pill '+(o?'on':'off');$('#src').textContent=S.key?'Live prices if online':'Demo prices'}
+addEventListener('online',net);addEventListener('offline',net);net();
+// demo series: deterministic pseudo-random walk
+function demo(sym){let h=0;for(const c of sym)h=(h*31+c.charCodeAt(0))>>>0;let p=50+h%950;const a=[];const d=Math.floor(Date.now()/864e5);
+for(let i=0;i<120;i++){h=(h*1664525+1013904223+d*0)>>>0;p*=1+((h/4294967296)-.48)*.04;a.push(+p.toFixed(2))}return a}
+async function series(sym,ex){const k=ex+':'+sym;const c0=S.cache[k];if(c0&&c0.live&&Date.now()-c0.t<216e5)return{c:c0.c,live:1,note:''};
+if(S.key&&navigator.onLine){try{const r=await fetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(sym)}&exchange=${ex}&interval=1day&outputsize=120&apikey=${S.key}`);const j=await r.json();
+if(j.values){const c=j.values.map(v=>+v.close).reverse();S.cache[k]={c,t:Date.now(),live:1};save();return{c,live:1,note:''}}
+return fallback(k,sym,j.message||'No data from provider')}catch(e){return fallback(k,sym,'Network error')}}
+return fallback(k,sym,S.key?'Offline – showing saved data':'')}
+function fallback(k,sym,note){const c=S.cache[k];if(c)return{c:c.c,live:c.live,note:(note?note+'. ':'')+'Saved '+new Date(c.t).toLocaleDateString()};return{c:demo(sym),live:0,note:(note?note+'. ':'')+'Demo data'}}
+const sma=(a,n)=>a.slice(-n).reduce((x,y)=>x+y,0)/Math.min(n,a.length);
+function rsi(a,n=14){let g=0,l=0;for(let i=a.length-n;i<a.length;i++){const d=a[i]-a[i-1];d>0?g+=d:l-=d}return l===0?100:100-100/(1+g/l)}
+const ema=(a,n)=>{const k=2/(n+1);let e=a[0];for(const v of a)e=v*k+e*(1-k);return e};
+function analyse(c){const p=c.at(-1),s20=sma(c,20),s50=sma(c,50),r=rsi(c),m=(p/c.at(-21)-1)*100;let sc=0;const why=[];
+if(p>s50){sc++;why.push('Above 50-day average')}else{sc--;why.push('Below 50-day average')}
+if(s20>s50){sc++;why.push('Uptrend (20d over 50d)')}else{sc--;why.push('Downtrend (20d under 50d)')}
+if(r<30){sc+=2;why.push('RSI '+r.toFixed(0)+' oversold')}else if(r>70){sc-=2;why.push('RSI '+r.toFixed(0)+' overbought')}else why.push('RSI '+r.toFixed(0));
+if(m>5){sc++;why.push('20-day gain '+m.toFixed(1)+'%')}else if(m<-5){sc--;why.push('20-day fall '+m.toFixed(1)+'%')}
+const macd=ema(c,12)-ema(c,26);if(macd>0){sc++;why.push('MACD positive')}else{sc--;why.push('MACD negative')}
+const sd=Math.sqrt(c.slice(-20).reduce((x,y)=>x+(y-s20)**2,0)/20);if(p<s20-2*sd){sc++;why.push('Below lower Bollinger band')}else if(p>s20+2*sd){sc--;why.push('Above upper Bollinger band')}
+const hi=Math.max(...c),lo=Math.min(...c);why.push('At '+((p-lo)/(hi-lo||1)*100).toFixed(0)+'% of 6-month range');
+const rt=c.slice(-21).map((v,i,a)=>i?Math.log(v/a[i-1]):0).slice(1),vol=Math.sqrt(rt.reduce((x,y)=>x+y*y,0)/rt.length);
+return{p,sc,sig:sc>=3?'BUY':sc<=-3?'SELL':'HOLD',why,stop:p*(1-2.5*vol),tgt:p*(1+4*vol)}}
+function spark(c){const a=c.slice(-60),mn=Math.min(...a),mx=Math.max(...a);const pts=a.map((v,i)=>`${(i/(a.length-1)*110).toFixed(1)},${(30-(v-mn)/(mx-mn||1)*28).toFixed(1)}`).join(' ');
+return `<svg class="sp" viewBox="0 0 110 32" role="img" aria-label="60-day price trend"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>`}
+const card=(s,e,d,a)=>`<div class="item"><div><span class="sym">${esc(s)}</span> <span class="mut">${e}</span><br><span class="mut">${a.p.toFixed(2)} ${d.live?'':'(demo/saved)'}</span></div><div class="sig ${a.sig}">${a.sig} <span class="mut">${a.sc>0?'+':''}${a.sc}/7</span><br>${spark(d.c)}</div><div class="why">${a.why.join(' · ')}${a.sig==='BUY'?`<br>Idea: stop-loss near ${a.stop.toFixed(2)}, target near ${a.tgt.toFixed(2)}`:a.sig==='SELL'?'<br>Idea: avoid new buying; if held, consider reducing':''}${d.note?'<br>'+esc(d.note):''}</div><div><button class="btn ghost" data-al="${esc(s)}|${e}">Set alert</button> <button class="btn ghost" data-rm="${esc(s)}|${e}">Remove</button></div></div>`;
+function chk(s,e,p){S.alerts.forEach(x=>{if(x.s!==s||x.e!==e)return;const hit=x.dir==='above'?p>=x.px:p<=x.px;if(hit&&!x.f){x.f=1;const m=`${s} (${e}) is ${p.toFixed(2)}, ${x.dir} your alert price ${x.px}`;$('#alerts').insertAdjacentHTML('beforeend',`<div class="warn">${esc(m)}</div>`);try{if(Notification.permission==='granted')new Notification('Share Signals',{body:m})}catch(_){}}else if(!hit)x.f=0});save()}
+async function drawWatch(){const ex=S.ex,list=S.watch[ex]||[];$('#alerts').innerHTML='';
+$('#alist').innerHTML=S.alerts.map((x,i)=>`<button class="pill" data-alrm="${i}" title="Remove alert">${esc(x.s)} ${x.e} ${x.dir} ${x.px} ×</button>`).join(' ');
+$('#wl').innerHTML=list.length?'<p class="mut">Loading…</p>':'<p class="mut">Nothing here yet. Add a symbol above.</p>';
+const rows=await Promise.all(list.map(async s=>{const d=await series(s,ex),a=analyse(d.c);chk(s,ex,a.p);return card(s,ex,d,a)}));
+if(list.length)$('#wl').innerHTML=rows.join('')}
+async function drawToday(){const T=$('#tbox');T.innerHTML='<p class="mut">Scanning your lists…</p>';const jobs=[],seen={},add=(s,e)=>{if(!seen[e+s]){seen[e+s]=1;jobs.push([s,e])}};
+(S.key?[S.ex]:Object.keys(S.watch)).forEach(e=>(S.watch[e]||[]).forEach(s=>add(s,e)));S.hold.forEach(h=>add(h.s,h.e));
+const R=await Promise.all(jobs.map(async([s,e])=>{const d=await series(s,e),a=analyse(d.c);chk(s,e,a.p);return{s,e,d,a}}));R.sort((x,y)=>y.a.sc-x.a.sc);
+const hs=new Set(S.hold.map(h=>h.e+h.s)),sec=(h,l)=>`<h2>${h}</h2>`+(l.length?l.map(r=>card(r.s,r.e,r.d,r.a)).join(''):'<p class="mut">None today.</p>');
+T.innerHTML=`<p class="mut">${new Date().toDateString()} · scanned ${R.length} shares${S.key?' (current exchange and holdings, to respect free API limits)':''}</p>`+sec('Best buy ideas',R.filter(r=>r.a.sig==='BUY').slice(0,5))+sec('Consider selling or avoiding',R.filter(r=>r.a.sig==='SELL').reverse().slice(0,5))+sec('Your holdings needing action',R.filter(r=>hs.has(r.e+r.s)&&r.a.sig!=='HOLD'))}
+async function drawPort(){let tot=0,inv=0;const rows=await Promise.all(S.hold.map(async(h,i)=>{const d=await series(h.s,h.e),a=analyse(d.c),v=a.p*h.q,c=h.p*h.q;tot+=v;inv+=c;const pl=v-c;
+return `<tr><td>${esc(h.s)} <span class="mut">${h.e}</span></td><td>${h.q}</td><td>${h.p}</td><td>${a.p.toFixed(2)}</td><td class="${pl>=0?'BUY':'SELL'}">${pl.toFixed(0)} (${(c?pl/c*100:0).toFixed(1)}%)</td><td class="${a.sig}"><b>${a.sig==='SELL'?'SELL / reduce':a.sig==='BUY'?'BUY / add':'HOLD'}</b></td><td><button class="btn ghost" data-del="${i}">×</button></td></tr>`}));
+$('#pb').innerHTML=rows.join('')||'<tr><td colspan="7" class="mut">No holdings yet.</td></tr>';
+$('#ptot').textContent=S.hold.length?`Invested ${inv.toFixed(0)} · Value ${tot.toFixed(0)} · P/L ${(tot-inv).toFixed(0)} (mixed currencies are added without conversion)`:''}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));['today','watch','port','set'].forEach(t=>$('#'+t).classList.toggle('hide',t!==b.dataset.t));if(b.dataset.t==='port')drawPort();if(b.dataset.t==='today')drawToday();if(b.dataset.t==='watch')drawWatch()});
+$('#ex').onchange=e=>{S.ex=e.target.value;save();drawWatch()};
+$('#addb').onclick=()=>{const v=$('#add').value.trim().toUpperCase();if(!v)return;const l=S.watch[S.ex]=S.watch[S.ex]||[];if(!l.includes(v))l.push(v);$('#add').value='';save();drawWatch()};
+$('#refresh').onclick=drawWatch;
+document.body.addEventListener('click',e=>{const d=e.target.dataset;if(d.rm){const[s,x]=d.rm.split('|');S.watch[x]=(S.watch[x]||[]).filter(v=>v!==s);save();drawWatch();drawToday()}
+if(d.al){const[s,x]=d.al.split('|');const v=+prompt('Alert me when '+s+' reaches this price:');if(v>0){series(s,x).then(r=>{S.alerts.push({s,e:x,px:v,dir:v>r.c.at(-1)?'above':'below'});save();try{Notification.requestPermission()}catch(_){}drawWatch()})}}
+if(d.alrm){S.alerts.splice(+d.alrm,1);save();drawWatch()}});
+$('#sync').onclick=async()=>{if(!S.proxy)return alert('Add your broker proxy URL in Settings first.');try{const j=await(await fetch(S.proxy.replace(/\/$/,'')+'/holdings')).json();S.hold=S.hold.filter(h=>!h.b).concat(j.map(x=>({s:String(x.symbol).toUpperCase(),e:String(x.exchange).toUpperCase(),q:+x.qty,p:+x.avg,b:1})));save();drawPort()}catch(err){alert('Could not reach your broker proxy.')}};
+$('#savep').onclick=()=>{S.proxy=$('#proxy').value.trim();save();alert('Saved.')};$('#proxy').value=S.proxy;
+$('#notif').onclick=()=>{try{Notification.requestPermission().then(r=>alert('Notifications: '+r))}catch(_){alert('Not supported here.')}};
+$('#padd').onclick=()=>{const s=$('#ps').value.trim().toUpperCase(),q=+$('#pq').value,p=+$('#pp').value;if(!s||!(q>0)||!(p>=0))return alert('Enter symbol, quantity and buy price.');S.hold.push({s,e:$('#pe').value,q,p});save();['#ps','#pq','#pp'].forEach(x=>$(x).value='');drawPort()};
+$('#pb').onclick=e=>{const i=e.target.dataset.del;if(i!==undefined){S.hold.splice(+i,1);save();drawPort()}};
+$('#savek').onclick=()=>{S.key=$('#key').value.trim();save();net();alert(S.key?'Key saved on this device.':'Key removed. Demo prices in use.')};
+$('#clr').onclick=()=>{if(confirm('Erase watchlists, holdings, saved prices and key from this device?')){localStorage.removeItem('ss');location.reload()}};
+$('#exp').onclick=()=>{const b=new Blob([JSON.stringify({watch:S.watch,hold:S.hold},null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='share-signals-backup.json';a.click()};
+$('#imp').onchange=async e=>{const f=e.target.files[0];if(!f)return;const t=await f.text();try{if(f.name.endsWith('.json')){const j=JSON.parse(t);S.watch=j.watch||S.watch;S.hold=j.hold||S.hold}else t.split(/\r?\n/).forEach(l=>{const[s,x,q,p]=l.split(',').map(v=>v.trim());if(s&&+q>0&&+p>=0&&EX[(x||'').toUpperCase()])S.hold.push({s:s.toUpperCase(),e:x.toUpperCase(),q:+q,p:+p})});save();drawPort()}catch(err){alert('Could not read that file.')}};
+if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+drawToday();drawWatch();
+</script>
+</body>
+</html>
