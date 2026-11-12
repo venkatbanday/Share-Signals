@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Share Signals – free watchlist & signal app</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12303a">
+<style>
+:root{--bg:#f3f5f7;--card:#fff;--ink:#12303a;--mute:#5d7280;--line:#d9e1e6;--buy:#0c8a5b;--sell:#c23b3b;--hold:#8a6a0c;--warn:#fff4d6;--warnt:#5c4400;--accent:#12303a}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1a20;--card:#14262e;--ink:#e6eef2;--mute:#8fa5b1;--line:#27404b;--buy:#45d19a;--sell:#ff7b7b;--hold:#e6c35c;--warn:#3a3010;--warnt:#f2deaa;--accent:#45d19a}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:700;margin:0}
+.wrap{max-width:960px;margin:0 auto;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+h1{font-size:26px}
+.pill{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--mute)}
+.pill.on{color:var(--buy);border-color:var(--buy)}.pill.off{color:var(--sell);border-color:var(--sell)}
+.warn{background:var(--warn);color:var(--warnt);padding:10px 12px;border-radius:8px;margin:12px 0;font-size:13px}
+nav{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:10px 0 14px}
+nav button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font:inherit;color:var(--mute);cursor:pointer}
+nav button[aria-selected=true]{color:var(--ink);border-color:var(--accent);font-weight:600}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);min-width:0}
+.btn{font:inherit;padding:8px 14px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--bg);cursor:pointer}
+.btn.ghost{background:none;color:var(--ink);border-color:var(--line)}
+.item{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:4px 12px}
+.sym{font-weight:700;font-size:17px}.mut{color:var(--mute);font-size:13px}
+.sig{font-weight:700;font-size:15px;text-align:right}
+.BUY{color:var(--buy)}.SELL{color:var(--sell)}.HOLD{color:var(--hold)}
+.why{grid-column:1/-1;font-size:13px;color:var(--mute)}
+svg.sp{width:110px;height:32px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:right;padding:8px 6px;border-bottom:1px solid var(--line)}th:first-child,td:first-child{text-align:left}
+.scroll{overflow-x:auto}
+footer{margin-top:28px;border-top:1px solid var(--line);padding-top:16px;font-size:13px;color:var(--mute)}
+footer a{color:var(--ink)}
+.hide{display:none}
+#res input[type=number]{width:105px}</style>
+</head>
+<body>
+<div class="wrap">
+<header><h1>Share Signals</h1><div><span class="pill" id="net"></span> <span class="pill" id="src"></span></div></header>
+<div class="warn" role="alert"><strong>Warning – use at your own risk.</strong> Signals come from simple algorithms (moving averages, RSI, momentum) on past prices. They are not financial advice and are not guaranteed to be right. Markets can fall and you can lose money. The author and this app accept no responsibility for any gain or loss. Do your own research or ask a licensed adviser.</div>
+<div id="alerts"></div><nav role="tablist"><button role="tab" data-t="today" aria-selected="true">Today</button><button role="tab" data-t="watch" aria-selected="false">Watchlist</button><button role="tab" data-t="port" aria-selected="false">My portfolio</button><button role="tab" data-t="res" aria-selected="false">Research</button><button role="tab" data-t="learn" aria-selected="false">Learn &amp; risk</button><button role="tab" data-t="set" aria-selected="false">Settings</button></nav>
+
+<section id="today"><div id="idx"></div><div id="tbox"></div></section>
+<section id="watch" class="hide">
+<div class="row"><select id="ex" aria-label="Exchange"></select>
+<input id="add" placeholder="Add symbol e.g. TCS" size="14"><button class="btn" id="addb">Add</button><button class="btn ghost" id="refresh">Refresh</button></div>
+<div id="alist" class="row"></div><div id="wl"></div>
+</section>
+
+<section id="port" class="hide">
+<div class="row"><input id="ps" placeholder="Symbol" size="9"><select id="pe"></select><input id="pq" type="number" min="0" step="any" placeholder="Qty" style="width:80px"><input id="pp" type="number" min="0" step="any" placeholder="Buy price" style="width:100px"><button class="btn" id="padd">Add holding</button><button class="btn ghost" id="sync">Sync from broker</button><button class="btn ghost" id="aip">AI review of my portfolio</button></div>
+<div class="scroll"><table><thead><tr><th>Share</th><th>Qty</th><th>Buy</th><th>Now</th><th>P/L</th><th>Signal</th><th></th></tr></thead><tbody id="pb"></tbody></table></div>
+<p class="mut" id="ptot"></p><div id="aiout"></div>
+<div class="row"><button class="btn ghost" id="exp">Export backup</button><label class="btn ghost">Import backup<input type="file" id="imp" accept=".json,.csv" class="hide"></label></div>
+<p class="mut">To pull holdings straight from your broker, set up the small free proxy in the broker-proxy.js file (see README) and paste its address in Settings. Otherwise enter holdings here or import a CSV (symbol,exchange,qty,price). Everything stays on your device.</p>
+</section>
+
+<section id="res" class="hide">
+<h2>Deep research: chart + company data</h2>
+<p class="mut">Open a company page from the links below, copy a few numbers into the boxes, and the app combines them with its chart signals into one suggestion and a step-by-step plan.</p>
+<div class="row"><input id="rsym" placeholder="Symbol" size="9"><select id="rex"></select></div>
+<div class="row"><input id="f1" type="number" placeholder="P/E"><input id="f2" type="number" placeholder="Sector P/E"><input id="f3" type="number" placeholder="Debt/Equity"><input id="f4" type="number" placeholder="ROE %"><input id="f5" type="number" placeholder="Sales growth %"><input id="f6" type="number" placeholder="Profit growth %"><select id="f7"><option value="0">News: neutral</option><option value="1">News: positive</option><option value="-1">News: negative</option></select><button class="btn" id="rgo">Analyse</button></div>
+<div id="rres"></div>
+<h2>Where to get the data</h2>
+<div class="warn">Be careful with "AI trading" sites, bots and signal groups. No one can guarantee profits. Avoid anyone who promises fixed returns, asks you to send money to a person, or wants your broker password. Check that an adviser is registered with your regulator (SEBI, FCA, SEC).</div>
+<div id="dir"></div>
+</section>
+<section id="learn" class="hide">
+<h2>How much can I safely buy?</h2>
+<p class="mut">Enter your total money, the % you accept to lose on one trade (many people use 1%), your entry price and stop-loss price.</p>
+<div class="row"><input id="rc" type="number" placeholder="Total capital"><input id="rr" type="number" value="1" step="0.1" placeholder="Risk %"><input id="re" type="number" placeholder="Entry price"><input id="rs" type="number" placeholder="Stop-loss price"><button class="btn" id="rcalc">Calculate</button></div><p id="rout"></p>
+<h2>Before you invest</h2>
+<ul class="mut"><li>Only use money you can afford to lose. Keep an emergency fund first.</li><li>Signals use price history only. Also read the company's results, debt and news (links on every share).</li><li>A common rule of thumb: keep any one share under about 10% of your money and spread across sectors.</li><li>Use a stop-loss and decide it before you buy.</li><li>Fees, brokerage and tax reduce profits. Frequent trading costs more.</li><li>Be wary of tips on WhatsApp or Telegram and promises of guaranteed returns.</li><li>Beginners may prefer low-cost index funds. A registered adviser (SEBI in India, FCA in the UK) can advise on your situation.</li></ul>
+<h2>What the words mean</h2>
+<ul class="mut"><li><b>Moving average:</b> the average price over 20 or 50 days. Above it means recent strength.</li><li><b>RSI:</b> 0 to 100. Under 30 is oversold (may bounce), over 70 overbought (may fall).</li><li><b>MACD:</b> compares fast and slow trends. Positive means upward momentum.</li><li><b>Bollinger bands:</b> a normal price range. Outside it means unusually high or low.</li><li><b>Stop-loss:</b> a price where you sell to limit your loss. <b>Target:</b> where you may take profit.</li><li><b>Score:</b> how many indicators agree. More agreement is not a guarantee.</li></ul>
+</section>
+<section id="set" class="hide">
+<h2>Live prices</h2>
+<p class="mut">The app works offline with sample (demo) prices. For real prices choose one: <b>(1) Free data proxy</b>, best for India and other markets. Deploy the small Worker from the README (it reads Yahoo Finance's unofficial feed, which can change or stop) and paste its address below. <b>(2) Twelve Data key</b> from <a href="https://twelvedata.com" target="_blank" rel="noopener">twelvedata.com</a>: the free plan covers US shares only (800 requests a day); NSE, BSE and most other exchanges need a paid plan. Keys are stored only in this browser.</p>
+<div class="row"><input id="key" type="password" placeholder="Twelve Data API key" size="30"><button class="btn" id="savek">Save key</button><button class="btn ghost" id="clr">Erase all my data</button></div>
+<h2 style="margin-top:20px">Broker and alerts</h2><div class="row"><input id="proxy" placeholder="Your data / broker proxy URL" size="34"><button class="btn" id="savep">Save</button><button class="btn ghost" id="notif">Allow alert notifications</button></div><p class="mut">Alerts are checked whenever the app is open. Your broker password and keys never go in this app.</p><h2 style="margin-top:20px">AI analysis (optional)</h2><p class="mut">Paste your own Anthropic API key (console.anthropic.com). Requests go from your device straight to Anthropic, and you pay them a few cents per analysis. The AI searches the web for the latest results and news, then gives a verdict, risks and a plan. The key stays in this browser only; do not use it on a shared computer.</p><div class="row"><input id="ak" type="password" placeholder="Anthropic API key" size="30"><button class="btn" id="saveak">Save</button></div><h2 style="margin-top:20px">How signals are made</h2>
+<p class="mut">Each share is scored from −7 to +7 using: price vs 50-day average, 20/50-day trend, RSI, 20-day momentum, MACD and Bollinger bands. Score 3 or more = BUY (with a suggested stop-loss and target from recent volatility), −3 or less = SELL, otherwise HOLD. This is rule-based maths on price history only; it does not read news, results or company fundamentals.</p>
+</section>
+
+<footer>
+<strong>About the builder</strong><br>
+VB — Venkateswararao Banday: multi-sector programme and operations leader with the right to work in the UK and India, looking for roles in London.<br>
+I build apps with AI and share them free to spread knowledge and useful information. If this helped you, and you know of any opportunity or can refer me, I would be very grateful.<br>
+<a href="https://wa.me/919962507575" target="_blank" rel="noopener">WhatsApp +91 9962507575</a> · <a href="https://wa.me/447391522993" target="_blank" rel="noopener">WhatsApp +44 7391 522993</a> · <a href="https://www.linkedin.com/in/venkateswararao-banday" target="_blank" rel="noopener">LinkedIn</a><br>
+Prefer not to click links? Contact details in plain text: WhatsApp +91 9962507575 · WhatsApp +44 7391 522993 · LinkedIn: linkedin.com/in/venkateswararao-banday<br>
+Free to share. No sign-up, no ads, no data collected.<br><br>
+Disclaimer: algorithm output only, no guarantee. Not financial advice. Use at your own risk; the author and app are not responsible for any loss.
+</footer>
+</div>
+<script>
+const EX={NSE:['RELIANCE','TCS','INFY','HDFCBANK','ITC'],BSE:['RELIANCE','TCS','SBIN','TATAMOTORS'],NASDAQ:['AAPL','MSFT','NVDA','GOOGL','AMZN'],NYSE:['JPM','KO','DIS','WMT'],LSE:['HSBA','BP','VOD','SHEL'],TSX:['RY','SHOP'],ASX:['BHP','CBA'],SGX:['D05','Z74'],HKEX:['700','5','9988'],XETR:['SAP','SIE'],Euronext:['MC','AIR']};
+const $=s=>document.querySelector(s);
+const S=(()=>{try{return JSON.parse(localStorage.getItem('ss')||'{}')}catch(e){return{}}})();
+S.ex=S.ex||'NSE';S.watch=S.watch||JSON.parse(JSON.stringify(EX));S.hold=S.hold||[];S.key=S.key||'';S.cache=S.cache||{};S.alerts=S.alerts||[];S.proxy=S.proxy||'';
+const save=()=>{try{localStorage.setItem('ss',JSON.stringify(S))}catch(e){}};
+const opts=Object.keys(EX).map(e=>`<option>${e}</option>`).join('');
+$('#ex').innerHTML=opts;$('#pe').innerHTML=opts;$('#rex').innerHTML=opts;$('#ex').value=S.ex;
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function net(){const o=navigator.onLine;$('#net').textContent=o?'Online':'Offline';$('#net').className='pill '+(o?'on':'off');$('#src').textContent=(S.key||S.proxy)?'Live prices if online':'Demo prices'}
+addEventListener('online',net);addEventListener('offline',net);net();
+// demo series: deterministic pseudo-random walk
+function demo(sym){let h=0;for(const c of sym)h=(h*31+c.charCodeAt(0))>>>0;let p=50+h%950;const a=[];const d=Math.floor(Date.now()/864e5);
+for(let i=0;i<120;i++){h=(h*1664525+1013904223+d*0)>>>0;p*=1+((h/4294967296)-.48)*.04;a.push(+p.toFixed(2))}return a}
+const YS={NSE:'.NS',BSE:'.BO',LSE:'.L',TSX:'.TO',ASX:'.AX',SGX:'.SI',HKEX:'.HK',XETR:'.DE',Euronext:'.PA'};
+const ysym=(s,e)=>e==='HKEX'?s.padStart(4,'0')+'.HK':s+(YS[e]||'');
+const px=()=>S.proxy.replace(/\/$/,'');
+async function series(sym,ex){const k=ex+':'+sym;const c0=S.cache[k];if(c0&&c0.live&&Date.now()-c0.t<216e5)return{c:c0.c,live:1,note:''};
+if(S.proxy&&navigator.onLine){try{const j=await(await fetch(px()+'/chart?range=2y&symbol='+encodeURIComponent(ysym(sym,ex)))).json();if(j.closes&&j.closes.length>50){const c=j.closes;S.cache[k]={c,t:Date.now(),live:1};save();return{c,live:1,note:''}}}catch(e){}}
+if(S.key&&navigator.onLine){try{const r=await fetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(sym)}&exchange=${ex}&interval=1day&outputsize=400&apikey=${S.key}`);const j=await r.json();
+if(j.values){const c=j.values.map(v=>+v.close).reverse();S.cache[k]={c,t:Date.now(),live:1};save();return{c,live:1,note:''}}
+return fallback(k,sym,j.message||'No data from provider')}catch(e){return fallback(k,sym,'Network error')}}
+return fallback(k,sym,S.key?'Offline – showing saved data':'')}
+function fallback(k,sym,note){const c=S.cache[k];if(c)return{c:c.c,live:c.live,note:(note?note+'. ':'')+'Saved '+new Date(c.t).toLocaleDateString()};return{c:demo(sym),live:0,note:(note?note+'. ':'')+'Demo data'}}
+const sma=(a,n)=>a.slice(-n).reduce((x,y)=>x+y,0)/Math.min(n,a.length);
+function rsi(a,n=14){let g=0,l=0;for(let i=a.length-n;i<a.length;i++){const d=a[i]-a[i-1];d>0?g+=d:l-=d}return l===0?100:100-100/(1+g/l)}
+const ema=(a,n)=>{const k=2/(n+1);let e=a[0];for(const v of a)e=v*k+e*(1-k);return e};
+function analyse(c){const p=c.at(-1),s20=sma(c,20),s50=sma(c,50),r=rsi(c),m=(p/c.at(-21)-1)*100;let sc=0;const why=[];
+if(p>s50){sc++;why.push('Above 50-day average')}else{sc--;why.push('Below 50-day average')}
+if(s20>s50){sc++;why.push('Uptrend (20d over 50d)')}else{sc--;why.push('Downtrend (20d under 50d)')}
+if(r<30){sc+=2;why.push('RSI '+r.toFixed(0)+' oversold')}else if(r>70){sc-=2;why.push('RSI '+r.toFixed(0)+' overbought')}else why.push('RSI '+r.toFixed(0));
+if(m>5){sc++;why.push('20-day gain '+m.toFixed(1)+'%')}else if(m<-5){sc--;why.push('20-day fall '+m.toFixed(1)+'%')}
+const macd=ema(c,12)-ema(c,26);if(macd>0){sc++;why.push('MACD positive')}else{sc--;why.push('MACD negative')}
+const sd=Math.sqrt(c.slice(-20).reduce((x,y)=>x+(y-s20)**2,0)/20);if(p<s20-2*sd){sc++;why.push('Below lower Bollinger band')}else if(p>s20+2*sd){sc--;why.push('Above upper Bollinger band')}
+const w=c.slice(-125),hi=Math.max(...w),lo=Math.min(...w);why.push('At '+((p-lo)/(hi-lo||1)*100).toFixed(0)+'% of 6-month range');
+const rt=c.slice(-21).map((v,i,a)=>i?Math.log(v/a[i-1]):0).slice(1),vol=Math.sqrt(rt.reduce((x,y)=>x+y*y,0)/rt.length);
+return{p,sc,sig:sc>=3?'BUY':sc<=-3?'SELL':'HOLD',why,stop:p*(1-2.5*vol),tgt:p*(1+4*vol)}}
+function spark(c){const a=c.slice(-60),mn=Math.min(...a),mx=Math.max(...a);const pts=a.map((v,i)=>`${(i/(a.length-1)*110).toFixed(1)},${(30-(v-mn)/(mx-mn||1)*28).toFixed(1)}`).join(' ');
+return `<svg class="sp" viewBox="0 0 110 32" role="img" aria-label="60-day price trend"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>`}
+function bt(c){let pos=0,en=0;const tr=[];for(let i=60;i<c.length;i++){const s=analyse(c.slice(0,i+1)).sc;if(!pos&&s>=3){pos=1;en=c[i]}else if(pos&&s<=0){tr.push(c[i]/en*.998-1);pos=0}}if(pos)tr.push(c.at(-1)/en*.998-1);
+const tot=(tr.reduce((x,r)=>x*(1+r),1)-1)*100,win=tr.length?tr.filter(r=>r>0).length/tr.length*100:0;return{n:tr.length,win,tot,bh:(c.at(-1)/c[60]-1)*100,ok:tr.length>=3&&tot>0&&win>=50}}
+function btLine(r){return `<br>Past test of this rule on this share: ${r.n} trades, ${r.win.toFixed(0)}% winners, ${r.tot.toFixed(0)}% total vs ${r.bh.toFixed(0)}% just holding (after 0.2% costs). <b>${r.ok?'History supports this signal.':'History does not clearly support this signal.'}</b>`}
+async function askAI(prompt,out){if(!S.ak)return out('Add your Anthropic API key in Settings first.');out('Thinking and checking the web (up to a minute)…');
+const call=async tools=>{const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':S.ak,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-5-5',max_tokens:1500,system:'You are a careful, honest equity research analyst. Use web search for the latest results, news and fundamentals when you can. Never promise profits. State uncertainty. Be concise, in this structure: VERDICT (BUY / HOLD / SELL / AVOID, confidence low/medium/high), WHY, RISKS, PLAN (entry, stop-loss, target, position size at 1% risk), VERIFY BEFORE ACTING.',messages:[{role:'user',content:prompt}],...(tools?{tools:[{type:'web_search_20250305',name:'web_search',max_uses:4}]}:{})})});const j=await r.json();if(!r.ok)throw new Error(j.error?.message||r.status);return j.content.filter(b=>b.type==='text').map(b=>b.text).join('\n')};
+try{let x;try{x=await call(1)}catch(e){x=await call(0)}out('<pre style="white-space:pre-wrap;font:inherit">'+esc(x)+'</pre><span class="mut">AI output can be wrong. Not financial advice.</span>')}catch(e){out('AI request failed: '+esc(e.message))}}
+const GF={NSE:'NSE',BSE:'BOM',NASDAQ:'NASDAQ',NYSE:'NYSE',LSE:'LON',TSX:'TSE',ASX:'ASX',SGX:'SGX',HKEX:'HKG',XETR:'ETR',Euronext:'EPA'};
+const links=(s,e)=>{const q=encodeURIComponent(s),L=[['Google Finance',`https://www.google.com/finance/quote/${q}:${GF[e]}`],['TradingView chart',`https://www.tradingview.com/symbols/${e==='Euronext'?'EURONEXT':e}-${q}/`],['News',`https://news.google.com/search?q=${q}+share+${e}`],['Investing.com',`https://www.investing.com/search/?q=${q}`]];if(e==='NSE'||e==='BSE')L.push(['Screener (results, debt)',`https://www.screener.in/company/${q}/`]);return '<br>Check before acting: '+L.map(x=>`<a href="${x[1]}" target="_blank" rel="noopener">${x[0]}</a>`).join(' · ')};
+const card=(s,e,d,a)=>`<div class="item"><div><span class="sym">${esc(s)}</span> <span class="mut">${e}</span><br><span class="mut">${a.p.toFixed(2)} ${d.live?'':'(demo/saved)'}</span></div><div class="sig ${d.live?a.sig:'HOLD'}">${d.live?a.sig:'SAMPLE ONLY'} <span class="mut">${a.sc>0?'+':''}${a.sc}/7</span><br>${spark(d.c)}</div><div class="why">${a.why.join(' · ')}${!d.live?'<br><b>Sample data, not a real price or signal. Do not trade on this.</b>':a.sig==='BUY'?`<br>Idea: stop-loss near ${a.stop.toFixed(2)}, target near ${a.tgt.toFixed(2)}`:a.sig==='SELL'?'<br>Idea: avoid new buying; if held, consider reducing':''}${d.note?'<br>'+esc(d.note):''}${d.live&&d.c.length>=200?btLine(bt(d.c)):''}<div data-nb="${esc(s)}|${e}"></div><div data-ab="${esc(s)}|${e}"></div>${links(s,e)}</div><div><button class="btn ghost" data-ai="${esc(s)}|${e}">AI analysis</button> <button class="btn ghost" data-nw="${esc(s)}|${e}">Latest news</button> <button class="btn ghost" data-al="${esc(s)}|${e}">Set alert</button> <button class="btn ghost" data-rm="${esc(s)}|${e}">Remove</button></div></div>`;
+function chk(s,e,p){S.alerts.forEach(x=>{if(x.s!==s||x.e!==e)return;const hit=x.dir==='above'?p>=x.px:p<=x.px;if(hit&&!x.f){x.f=1;const m=`${s} (${e}) is ${p.toFixed(2)}, ${x.dir} your alert price ${x.px}`;$('#alerts').insertAdjacentHTML('beforeend',`<div class="warn">${esc(m)}</div>`);try{if(Notification.permission==='granted')new Notification('Share Signals',{body:m})}catch(_){}}else if(!hit)x.f=0});save()}
+async function drawWatch(){const ex=S.ex,list=S.watch[ex]||[];$('#alerts').innerHTML='';
+$('#alist').innerHTML=S.alerts.map((x,i)=>`<button class="pill" data-alrm="${i}" title="Remove alert">${esc(x.s)} ${x.e} ${x.dir} ${x.px} ×</button>`).join(' ');
+$('#wl').innerHTML=list.length?'<p class="mut">Loading…</p>':'<p class="mut">Nothing here yet. Add a symbol above.</p>';
+const rows=await Promise.all(list.map(async s=>{const d=await series(s,ex),a=analyse(d.c);chk(s,ex,a.p);return card(s,ex,d,a)}));
+if(list.length)$('#wl').innerHTML=rows.join('')}
+async function drawIdx(){const B=$('#idx');if(!S.proxy){B.innerHTML='<p class="mut">Market overview (Nifty, Sensex, S&amp;P 500, Nasdaq, FTSE) appears when you add the free data proxy in Settings.</p>';return}
+B.innerHTML=(await Promise.all([['Nifty 50','^NSEI'],['Sensex','^BSESN'],['S&P 500','^GSPC'],['Nasdaq','^IXIC'],['FTSE 100','^FTSE']].map(async([n,y])=>{try{const c=(await(await fetch(px()+'/chart?symbol='+encodeURIComponent(y))).json()).closes,p=c.at(-1),ch=(p/c.at(-2)-1)*100;return `<div class="item"><div><span class="sym">${n}</span><br><span class="mut">${p.toFixed(0)} · ${p>sma(c,50)?'above':'below'} its 50-day average</span></div><div class="sig ${ch>=0?'BUY':'SELL'}">${ch>=0?'+':''}${ch.toFixed(2)}%</div></div>`}catch(e){return ''}}))).join('')}
+async function drawToday(){drawIdx();const T=$('#tbox');T.innerHTML='<p class="mut">Scanning your lists…</p>';const jobs=[],seen={},add=(s,e)=>{if(!seen[e+s]){seen[e+s]=1;jobs.push([s,e])}};
+(S.key&&!S.proxy?[S.ex]:Object.keys(S.watch)).forEach(e=>(S.watch[e]||[]).forEach(s=>add(s,e)));S.hold.forEach(h=>add(h.s,h.e));
+const R=await Promise.all(jobs.map(async([s,e])=>{const d=await series(s,e),a=analyse(d.c);chk(s,e,a.p);return{s,e,d,a}}));R.sort((x,y)=>y.a.sc-x.a.sc);
+const hs=new Set(S.hold.map(h=>h.e+h.s)),sec=(h,l)=>`<h2>${h}</h2>`+(l.length?l.map(r=>card(r.s,r.e,r.d,r.a)).join(''):'<p class="mut">None today.</p>');
+T.innerHTML=(R.some(r=>r.d.live)?'':'<div class="warn"><strong>You are seeing SAMPLE data, not real prices.</strong> Signals are switched off. Set up the free data proxy (India and global) or a Twelve Data key (US shares only) in Settings for real prices. Never invest based on sample data.</div>')+`<p class="mut">${new Date().toDateString()} · scanned ${R.length} shares${S.key&&!S.proxy?' (current exchange and holdings, to respect free API limits)':''}</p>`+sec('Best buy ideas',R.filter(r=>r.d.live&&r.a.sig==='BUY').slice(0,5))+sec('Consider selling or avoiding',R.filter(r=>r.d.live&&r.a.sig==='SELL').reverse().slice(0,5))+sec('Your holdings needing action',R.filter(r=>r.d.live&&hs.has(r.e+r.s)&&r.a.sig!=='HOLD'))}
+async function drawPort(){let tot=0,inv=0;const V=[];const rows=await Promise.all(S.hold.map(async(h,i)=>{const d=await series(h.s,h.e),a=analyse(d.c),v=a.p*h.q,c=h.p*h.q;tot+=v;inv+=c;V.push([h.s,v]);const pl=v-c;
+return `<tr><td>${esc(h.s)} <span class="mut">${h.e}</span></td><td>${h.q}</td><td>${h.p}</td><td>${a.p.toFixed(2)}</td><td class="${pl>=0?'BUY':'SELL'}">${pl.toFixed(0)} (${(c?pl/c*100:0).toFixed(1)}%)</td><td class="${a.sig}"><b>${a.sig==='SELL'?'SELL / reduce':a.sig==='BUY'?'BUY / add':'HOLD'}</b></td><td><button class="btn ghost" data-del="${i}">×</button></td></tr>`}));
+$('#pb').innerHTML=rows.join('')||'<tr><td colspan="7" class="mut">No holdings yet.</td></tr>';
+$('#ptot').textContent=S.hold.length?`Invested ${inv.toFixed(0)} · Value ${tot.toFixed(0)} · P/L ${(tot-inv).toFixed(0)} (mixed currencies are added without conversion)`+(()=>{const m=V.sort((x,y)=>y[1]-x[1])[0];return m&&m[1]>tot*.25&&V.length>1?` · Warning: ${m[0]} is ${(m[1]/tot*100).toFixed(0)}% of your portfolio. Consider spreading the risk.`:''})():''}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));['today','watch','port','res','learn','set'].forEach(t=>$('#'+t).classList.toggle('hide',t!==b.dataset.t));if(b.dataset.t==='port')drawPort();if(b.dataset.t==='today')drawToday();if(b.dataset.t==='watch')drawWatch()});
+$('#ex').onchange=e=>{S.ex=e.target.value;save();drawWatch()};
+$('#addb').onclick=()=>{const v=$('#add').value.trim().toUpperCase();if(!v)return;const l=S.watch[S.ex]=S.watch[S.ex]||[];if(!l.includes(v))l.push(v);$('#add').value='';save();drawWatch()};
+$('#refresh').onclick=drawWatch;
+document.body.addEventListener('click',async e=>{const d=e.target.dataset;
+if(d.ai){const[s,x]=d.ai.split('|'),put=h=>document.querySelectorAll('[data-ab]').forEach(n=>{if(n.dataset.ab===d.ai)n.innerHTML=h}),r=await series(s,x);if(!r.live)return put('Prices are sample data. Set up the data proxy first.');const a=analyse(r.c),b=r.c.length>=200?bt(r.c):null;askAI(`Analyse ${s} listed on ${x}. Latest close ${a.p.toFixed(2)}. Chart score ${a.sc}/7: ${a.why.join('; ')}. `+(b?`Backtest of my rule: ${b.n} trades, ${b.win.toFixed(0)}% winners, ${b.tot.toFixed(0)}% vs ${b.bh.toFixed(0)}% buy-and-hold. `:'')+'Check the latest results, news and valuation, then give your verdict.',put)}
+if(d.nw){const[s,x]=d.nw.split('|'),put=h=>document.querySelectorAll('[data-nb]').forEach(n=>{if(n.dataset.nb===d.nw)n.innerHTML=h});if(!S.proxy)return put('Add the free data proxy in Settings to see headlines here, or use the News link below.');put('Loading news…');try{const j=(await(await fetch(px()+'/news?q='+encodeURIComponent(ysym(s,x)))).json()).filter(n=>/^https?:/.test(n.link));put(j.length?j.map(n=>`• <a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a> <span class="mut">${esc(n.publisher||'')}</span>`).join('<br>'):'No headlines found.')}catch(err){put('Could not load news.')}}
+if(d.rm){const[s,x]=d.rm.split('|');S.watch[x]=(S.watch[x]||[]).filter(v=>v!==s);save();drawWatch();drawToday()}
+if(d.al){const[s,x]=d.al.split('|');const v=+prompt('Alert me when '+s+' reaches this price:');if(v>0){series(s,x).then(r=>{S.alerts.push({s,e:x,px:v,dir:v>r.c.at(-1)?'above':'below'});save();try{Notification.requestPermission()}catch(_){}drawWatch()})}}
+if(d.alrm){S.alerts.splice(+d.alrm,1);save();drawWatch()}});
+$('#sync').onclick=async()=>{if(!S.proxy)return alert('Add your broker proxy URL in Settings first.');try{const j=await(await fetch(S.proxy.replace(/\/$/,'')+'/holdings')).json();S.hold=S.hold.filter(h=>!h.b).concat(j.map(x=>({s:String(x.symbol).toUpperCase(),e:String(x.exchange).toUpperCase(),q:+x.qty,p:+x.avg,b:1})));save();drawPort()}catch(err){alert('Could not reach your broker proxy.')}};
+$('#savep').onclick=()=>{S.proxy=$('#proxy').value.trim();save();alert('Saved.')};$('#proxy').value=S.proxy;
+$('#notif').onclick=()=>{try{Notification.requestPermission().then(r=>alert('Notifications: '+r))}catch(_){alert('Not supported here.')}};
+$('#padd').onclick=()=>{const s=$('#ps').value.trim().toUpperCase(),q=+$('#pq').value,p=+$('#pp').value;if(!s||!(q>0)||!(p>=0))return alert('Enter symbol, quantity and buy price.');S.hold.push({s,e:$('#pe').value,q,p});save();['#ps','#pq','#pp'].forEach(x=>$(x).value='');drawPort()};
+$('#pb').onclick=e=>{const i=e.target.dataset.del;if(i!==undefined){S.hold.splice(+i,1);save();drawPort()}};
+$('#rcalc').onclick=()=>{const c=+$('#rc').value,r=+$('#rr').value,e=+$('#re').value,s=+$('#rs').value,k=Math.abs(e-s);if(!(c>0&&r>0&&e>0&&k>0))return $('#rout').textContent='Fill all four boxes.';const q=Math.floor(c*r/100/k),v=q*e;$('#rout').innerHTML=`Maximum quantity: <b>${q}</b> shares (cost ${v.toFixed(0)} = ${(v/c*100).toFixed(0)}% of your money). If the stop-loss is hit you lose about ${(q*k).toFixed(0)}.`+(v>c*.25?' <b>That is a large share of your money in one stock; consider less.</b>':'')};
+$('#aip').onclick=async()=>{if(!S.hold.length)return alert('Add holdings first.');const L=await Promise.all(S.hold.map(async h=>{const d=await series(h.s,h.e),a=analyse(d.c);return `${h.s} (${h.e}) qty ${h.q}, bought ${h.p}, now ${a.p.toFixed(2)}, chart ${a.sig} ${a.sc}/7${d.live?'':' [SAMPLE price]'}`}));askAI('Review my portfolio:\n'+L.join('\n')+'\nGive diversification and concentration risks, which holdings to review for selling or adding, and the 3 most important actions. Check the latest news for each.',h=>$('#aiout').innerHTML=h)};
+$('#saveak').onclick=()=>{S.ak=$('#ak').value.trim();save();$('#ak').value='';alert(S.ak?'AI key saved on this device only.':'AI key removed.')};
+$('#savek').onclick=()=>{S.key=$('#key').value.trim();save();net();alert(S.key?'Key saved on this device.':'Key removed. Demo prices in use.')};
+$('#clr').onclick=()=>{if(confirm('Erase watchlists, holdings, saved prices and key from this device?')){localStorage.removeItem('ss');location.reload()}};
+$('#exp').onclick=()=>{const b=new Blob([JSON.stringify({watch:S.watch,hold:S.hold},null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='share-signals-backup.json';a.click()};
+$('#imp').onchange=async e=>{const f=e.target.files[0];if(!f)return;const t=await f.text();try{if(f.name.endsWith('.json')){const j=JSON.parse(t);S.watch=j.watch||S.watch;S.hold=j.hold||S.hold}else t.split(/\r?\n/).forEach(l=>{const[s,x,q,p]=l.split(',').map(v=>v.trim());if(s&&+q>0&&+p>=0&&EX[(x||'').toUpperCase()])S.hold.push({s:s.toUpperCase(),e:x.toUpperCase(),q:+q,p:+p})});save();drawPort()}catch(err){alert('Could not read that file.')}};
+if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+const DIR={'Anywhere':[['TradingView','https://www.tradingview.com'],['Investing.com','https://www.investing.com'],['Google Finance','https://www.google.com/finance'],['Yahoo Finance','https://finance.yahoo.com']],'India':[['NSE (official)','https://www.nseindia.com'],['BSE (official)','https://www.bseindia.com'],['Moneycontrol','https://www.moneycontrol.com'],['Screener','https://www.screener.in'],['Trendlyne','https://trendlyne.com'],['Tickertape','https://www.tickertape.in'],['SEBI investor site','https://investor.sebi.gov.in']],'USA':[['SEC EDGAR filings','https://www.sec.gov/edgar'],['Nasdaq','https://www.nasdaq.com'],['NYSE','https://www.nyse.com'],['Finviz','https://finviz.com']],'UK':[['London Stock Exchange','https://www.londonstockexchange.com'],['FCA register (check advisers)','https://register.fca.org.uk']],'Others':[['TMX (Canada)','https://www.tmx.com'],['ASX (Australia)','https://www.asx.com.au'],['SGX (Singapore)','https://www.sgx.com'],['HKEXnews (Hong Kong)','https://www.hkexnews.hk']]};
+$('#dir').innerHTML=Object.entries(DIR).map(([r,l])=>`<p><b>${r}</b><br>`+l.map(x=>`<a href="${x[1]}" target="_blank" rel="noopener">${x[0]}</a>`).join(' · ')+'</p>').join('');
+$('#rgo').onclick=async()=>{const s=$('#rsym').value.trim().toUpperCase(),e=$('#rex').value;if(!s)return alert('Enter a symbol.');const [pe,spe,de,roe,sg,pg]=[1,2,3,4,5,6].map(i=>$('#f'+i).value===''?null:+$('#f'+i).value),nw=+$('#f7').value;
+const d=await series(s,e),a=analyse(d.c),T=a.sc;let f=0;const fw=[];
+if(pe!=null&&spe!=null){if(pe<spe*.9){f++;fw.push('P/E below sector (cheaper)')}else if(pe>spe*1.3){f--;fw.push('P/E well above sector (expensive)')}}
+if(de!=null){if(de<.5){f++;fw.push('Low debt')}else if(de>1.5){f--;fw.push('High debt (banks and finance firms naturally differ)')}}
+if(roe!=null){if(roe>15){f++;fw.push('Strong ROE')}else if(roe<8){f--;fw.push('Weak ROE')}}
+if(sg!=null){if(sg>10){f++;fw.push('Sales growing')}else if(sg<0){f--;fw.push('Sales shrinking')}}
+if(pg!=null){if(pg>10){f++;fw.push('Profit growing')}else if(pg<0){f--;fw.push('Profit falling')}}
+if(nw){f+=nw;fw.push(nw>0?'Positive news':'Negative news')}
+const n=[pe,de,roe,sg,pg].filter(x=>x!=null).length;let vd;
+if(!d.live)vd='Prices are SAMPLE data, so no suggestion is given. Set up the data proxy in Settings first.';
+else if(n<3)vd='Enter at least 3 company numbers for a fuller view. Chart-only signal: '+a.sig+'.';
+else if(T>=3&&f>=2)vd='STRONGER BUY CANDIDATE: chart and company data agree. Still not a guarantee.';
+else if(T>=3&&f<=-2)vd='CONFLICT: chart looks strong but company data is weak. Safer to WAIT or avoid.';
+else if(T<=-3&&f>=2)vd='CONFLICT: company looks good but the chart is weak. WAIT for the trend to turn.';
+else if(T<=-3&&f<=-2)vd='AVOID, or SELL if held: chart and company data are both weak.';
+else vd='HOLD / WATCH: signals are mixed.';
+const st=['Confirm today\'s price and latest announcements on the official exchange site (links below).','Read the latest quarterly results and recent news about the company.','Size the position with the calculator in Learn & risk (about 1% risk per trade).','Decide the stop-loss first (idea: near '+a.stop.toFixed(2)+'). Buy in 2 or 3 parts, not all at once.','Set a price alert and review after the next results date.','If unsure, wait. Not investing is also a decision.'];
+const pr=`Act as a cautious equity research analyst. Share: ${s} (${e}), price ${a.p.toFixed(2)}.\nChart indicators: score ${T}/7 (${a.why.join('; ')}).\nCompany data I entered: P/E ${pe??'n/a'} (sector ${spe??'n/a'}), debt/equity ${de??'n/a'}, ROE ${roe??'n/a'}%, sales growth ${sg??'n/a'}%, profit growth ${pg??'n/a'}%, news ${nw>0?'positive':nw<0?'negative':'neutral'}.\nUsing these facts and the latest official filings you can access, give: bull case, bear case, key risks, what would change your mind, and a staged entry plan with stop-loss. State uncertainty. No guarantees.`;
+$('#rres').innerHTML=`<div class="item" style="display:block"><b>${esc(vd)}</b><br><span class="mut">Chart score ${T}/7 · Company score ${f}/6${fw.length?' · '+fw.join(', '):''}</span><ol>${st.map(x=>'<li>'+esc(x)+'</li>').join('')}</ol><button class="btn ghost" id="cp">Copy AI research prompt</button> <span class="mut">Paste it into any AI chat for a second opinion.</span></div>`;
+$('#cp').onclick=()=>navigator.clipboard.writeText(pr).then(()=>alert('Copied.'),()=>prompt('Copy this:',pr))};
+drawToday();drawWatch();
+</script>
+</body>
+</html>
